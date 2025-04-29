@@ -15,11 +15,11 @@ resnet = InceptionResnetV1(pretrained='vggface2').to(device).eval()
 
 # 2. Ensure the 'db' folder exists and connect to your local faces.db
 os.makedirs('db', exist_ok=True)
-conn = sqlite3.connect(os.path.join('db', 'faces.db'))
+conn = sqlite3.connect(os.path.join('db', 'facesVisitwise.db'))
 c = conn.cursor()
 
 c.execute('''
-    CREATE TABLE IF NOT EXISTS faces (
+    CREATE TABLE IF NOT EXISTS facesVisitwise (
         id TEXT PRIMARY KEY,
         embedding BLOB
     )
@@ -31,14 +31,14 @@ conn.commit()
 def add_face(face_id: str, embedding: np.ndarray):
     emb_bytes = embedding.astype(np.float32).tobytes()
     c.execute(
-        'INSERT OR REPLACE INTO faces (id, embedding) VALUES (?, ?)',
+        'INSERT OR REPLACE INTO facesVisitwise (id, embedding) VALUES (?, ?)',
         (face_id, emb_bytes)
     )
     conn.commit()
 
 
 def find_match(embedding: np.ndarray, threshold: float = 0.6):
-    rows = c.execute('SELECT id, embedding FROM faces').fetchall()
+    rows = c.execute('SELECT id, embedding FROM facesVisitwise').fetchall()
     if not rows:
         return None
     ids, vecs = zip(*[

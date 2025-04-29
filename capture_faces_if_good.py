@@ -273,7 +273,7 @@ try:
                 break
             # distance check
             dist = a * (area**b)
-            print(f"face detected at distance of {dist}")
+            print(f"Distance: {dist:.1f} cm")
             if dist > MAX_DISTANCE_CM:
                 print(f"too far: {dist:.1f}cm, skip Stage2")
                 break
