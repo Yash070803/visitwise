@@ -115,16 +115,27 @@ try:
             time.sleep(0.05)
             continue
         # rotate to correct orientation
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
         gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # detect faces with stricter parameters
-        faces = face_cascade.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=6, minSize=(150,150)
+        small = cv2.resize(gray, (0,0), fx=0.5, fy=0.5)
+        faces = face_cascade.detectMultiScale(gray,
+            scaleFactor=1.1, minNeighbors=8, minSize=(150,150)
         )
         if len(faces) > 0:
             # process first detected face
             x,y,w,h = faces[0]
             area = w*h
+
+            if area < AREA_THRESHOLD:
+                print(f"Face area too small ({area}), skipping.")
+                continue
+
+            # Check aspect ratio (typical faces are ~square)
+            aspect_ratio = w / h
+            if not (0.7 < aspect_ratio < 1.3):
+                print(f"Invalid aspect ratio {aspect_ratio:.2f}, skipping.")
+                continue
             # Stage1: save raw crop
             ts = time.strftime("%Y%m%d_%H%M%S")
             raw_path = os.path.join(RAW_DIR, f"raw_{ts}.jpg")
@@ -132,8 +143,6 @@ try:
             cv2.imwrite(raw_path, crop)
             dist = a * (area**b) + 50
             print(f"Stage1 saved face.jpg ... captured at a distance of {dist:.1f}")
-            
-            async_upload(raw_path)
 
             # check eyes
             roi_gray = gray[y:y+h, x:x+w]
@@ -168,9 +177,12 @@ try:
                 continue
             # Stage2: save good crop
             final_path = os.path.join(FINAL_DIR, f"good_{ts}.jpg")
-            cv2.imwrite(final_path, crop)
+            cv2.imwrite(final_path,crop)
             print(f"Stage2 saved good_{ts}.jpg (distance={dist:.1f}cm)")
-            break
+            async_upload(final_path)
+            print("capturing another image\n..\n..")
+
+            
         # show preview
         #cv2.imshow("Preview", frame)
         #if cv2.waitKey(1) & 0xFF == ord('q'):

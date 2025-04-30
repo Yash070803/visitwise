@@ -1,5 +1,5 @@
 #--------------cv2--------------------------------------
-'''# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
 import cv2
 import time
@@ -90,7 +90,7 @@ try:
             x, y, w, h = faces[0]
             area = w * h
             if area >= AREA_THRESHOLD:
-                dist = a * (area ** b)
+                dist = a * (area ** b) + 50 
                 if dist <= MIN_DISTANCE_CM:
                     crop = frame[y:y+h, x:x+w]
                     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -111,4 +111,3 @@ except KeyboardInterrupt:
 stop_event.set()
 cv2.destroyAllWindows()
 print("Stopped.")
-'''
