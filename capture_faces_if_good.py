@@ -16,6 +16,9 @@ MAX_DISTANCE_CM = 150.0     # maximum capture distance in cm
 AREA_THRESHOLD  = 20000     # minimum required face box area (px^2)
 EYE_SYMM_THRESH = 20        # eye alignment tolerance (pixels)
 
+fgbg = cv2.createBackgroundSubtractorMOG2(history=50, detectShadows=False)
+
+
 # calibration coefficients for distance = a * (area ** b)
 a = 9703.20
 b = -0.4911842338691967
@@ -84,13 +87,14 @@ def frame_reader():
     picam2.start()
     # tune image for low light and clarity
     picam2.set_controls({
-        "ExposureTime":30000,  # 30 ms
-        "AnalogueGain":4.0,
+        "ExposureTime":10000,  # 30 ms
+        "AnalogueGain":6.0,
         "AwbEnable":True,
         "AeEnable":True,
         "Brightness":0.2,
         "Contrast":1.2,
         "Sharpness":1.5,
+        "FrameRate": 30
     })
     while not stop_event.is_set():
         img = picam2.capture_array("main")
@@ -116,6 +120,9 @@ try:
             continue
         # rotate to correct orientation
         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        fgmask = fgbg.apply(gray)
+        if cv2.countNonZero(fgmask) < 500:  # Skip if no motion
+            continue
         gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # detect faces with stricter parameters
         small = cv2.resize(gray, (0,0), fx=0.5, fy=0.5)
