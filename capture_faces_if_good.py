@@ -87,7 +87,7 @@ def record_and_upload_video(raw_path, mp4_path, record_duration=5):
         picam2.start_recording(encoder, raw_path)
         time.sleep(record_duration)
         picam2.stop_recording()
-        print("Recording stopped, converting to MP4…")
+        print("Recording stopped, converting to MP4")
 
         subprocess.run([
             "ffmpeg", "-y",
