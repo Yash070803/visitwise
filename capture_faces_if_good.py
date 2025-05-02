@@ -187,6 +187,7 @@ try:
         cv2.imwrite(raw_img_path, crop)
         dist = a * (area**b) + 50
         print(f"Face at {dist:.1f} cm saved: {raw_img_path}")
+        time.sleep(0.01)
         record_and_upload_video(RAW_PATH, MP4_PATH)
         print("Done recording video.\n")
 
