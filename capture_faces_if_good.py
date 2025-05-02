@@ -6,11 +6,16 @@ import cv2
 import time
 from threading import Thread, Lock, Event
 from picamera2 import Picamera2
+from picamera2.encoders import H264Encoder
+import subprocess
 import requests
 # --- Configuration ---
 RAW_DIR       = "faces_raw"
 FINAL_DIR     = "captured_faces"
 CASCADE_DIR   = os.path.join(os.path.dirname(__file__), "cascades")
+RAW_PATH = "/home/neonflake/Desktop/visitwise/video.h264"
+MP4_PATH = "/home/neonflake/Desktop/visitwise/video.mp4"
+
 
 MAX_DISTANCE_CM = 150.0     # maximum capture distance in cm
 AREA_THRESHOLD  = 20000     # minimum required face box area (px^2)
@@ -33,6 +38,7 @@ SYSTEM_PATHS = [
     "/usr/share/opencv/haarcascades",
     "/usr/local/share/opencv4/haarcascades",
 ]
+
 def async_upload(path):
     try:
         res = requests.post(
@@ -46,6 +52,33 @@ def async_upload(path):
             print(f"Upload failed with status: {res.status_code}")
     except Exception as e:
         print(f"Upload exception: {e}")
+
+def record_and_upload_video(raw_path, mp4_path, record_duration=5):
+    picam2 = Picamera2()
+    config = picam2.create_video_configuration()
+    picam2.configure(config)
+    encoder = H264Encoder()
+    try:
+        # Start recording
+        picam2.start_recording(encoder, raw_path)
+        time.sleep(record_duration)
+        picam2.stop_recording()
+
+        # Convert to MP4
+        try:
+            subprocess.run([
+                "ffmpeg", "-y",
+                "-framerate", "30",
+                "-i", raw_path,
+                "-c", "copy",
+                mp4_path
+            ], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error during video conversion: {e}")
+            return
+        # async_upload(mp4_path)
+    finally:
+        picam2.close()
 
 def find_cascade(name):
     # local cascades folder
@@ -195,7 +228,7 @@ try:
             final_path = os.path.join(FINAL_DIR, f"good_{ts}.jpg")
             cv2.imwrite(final_path,crop)
             print(f"Stage2 saved good_{ts}.jpg (distance={dist:.1f}cm)")
-            async_upload(final_path)
+            record_and_upload_video(RAW_PATH,MP4_PATH)
             print("capturing another image\n..\n..")
 
             
