@@ -74,39 +74,36 @@ def async_upload(path):
         print("Upload exception:", e)
 
 def record_and_upload_video(raw_path, mp4_path, record_duration=5):
-    global t
-    # pause preview capture
-    stop_event.set()
-    t.join()
-
     print("Starting video recording...")
     picam2 = Picamera2()
-    config = picam2.create_video_configuration()
+    config = picam2.create_video_configuration(main={"size": (1920, 1080)})
     picam2.configure(config)
     encoder = H264Encoder()
     try:
         picam2.start_recording(encoder, raw_path)
         time.sleep(record_duration)
         picam2.stop_recording()
-        print("Recording stopped, converting to MP4...")
-        try:
-            subprocess.run([
-                "ffmpeg", "-y",
-                "-framerate", "30",
-                "-i", raw_path,
-                "-c", "copy",
-                mp4_path
-            ], check=True)
-            print("Conversion done:", mp4_path)
-        except subprocess.CalledProcessError as e:
-            print(f"FFmpeg error: {e}")
+        print("Recording stopped, converting to MP4…")
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-framerate", "30",
+            "-i", raw_path,
+            "-c", "copy",
+            mp4_path
+        ], check=True)
+        print("Conversion done:", mp4_path)
+        # upload
+        with open(mp4_path, 'rb') as f:
+            res = requests.post(
+                'https://visit-wise-api.onrender.com/api/faces/upload',
+                files={'video': f},
+                data={'deviceId': 'DEV3617'}
+            )
+        print("Upload status:", res.status_code)
+    except subprocess.CalledProcessError as e:
+        print(f"FFmpeg error: {e}")
     finally:
         picam2.close()
-
-    # resume preview capture
-    stop_event.clear()
-    t = Thread(target=frame_reader, daemon=True)
-    t.start()
 
 # shared frame buffer
 frame_buffer = None
