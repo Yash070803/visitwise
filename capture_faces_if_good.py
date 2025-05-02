@@ -2,84 +2,88 @@
 import os
 import cv2
 import time
+import subprocess
 from threading import Thread, Lock
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
-import subprocess
 
 # --- Configuration ---
-RAW_PATH = "/home/neonflake/Desktop/visitwise/video.h264"
-MP4_PATH = "/home/neonflake/Desktop/visitwise/video.mp4"
-FACE_CASCADE_PATH = "haarcascade_frontalface_default.xml"
+FACE_CASCADE = "haarcascade_frontalface_default.xml"
+VIDEO_PATH = "/home/neonflake/Desktop/visitwise/recording.mp4"
+RESOLUTION = (1280, 720)
+RECORD_DURATION = 5  # seconds
 
-# Initialize camera once
-picam2 = Picamera2()
-config = picam2.create_video_configuration(main={"size": (1280, 720)})
-picam2.configure(config)
+class FaceRecorder:
+    def __init__(self):
+        self.picam2 = Picamera2()
+        self.camera_lock = Lock()
+        self.recording = False
+        self.face_cascade = cv2.CascadeClassifier(FACE_CASCADE)
+        
+        # Configure camera for dual use (preview + recording)
+        self.config = self.picam2.create_video_configuration(
+            main={"size": RESOLUTION},
+            encode="main"
+        )
+        self.picam2.configure(self.config)
+        self.picam2.start()
 
-# Face detection setup
-face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
-camera_lock = Lock()
-is_recording = False
-
-def convert_to_mp4():
-    """Convert the raw video to MP4 format"""
-    try:
-        subprocess.run([
-            "ffmpeg", "-y",
-            "-framerate", "30",
-            "-i", RAW_PATH,
-            "-c", "copy",
-            MP4_PATH
-        ], check=True)
-        print(f"Video saved: {MP4_PATH}")
-    except Exception as e:
-        print("Conversion error:", e)
-
-def record_video():
-    """Handle video recording"""
-    global is_recording
-    with camera_lock:
+    def _convert_to_mp4(self, h264_path):
+        """Convert raw H264 to MP4"""
         try:
-            encoder = H264Encoder()
-            picam2.start_recording(encoder, RAW_PATH)
-            time.sleep(5)  # Record for 5 seconds
-            picam2.stop_recording()
-            convert_to_mp4()
+            subprocess.run([
+                "ffmpeg", "-y",
+                "-i", h264_path,
+                "-c", "copy",
+                VIDEO_PATH
+            ], check=True)
+            print(f"Video saved: {VIDEO_PATH}")
         except Exception as e:
-            print("Recording error:", e)
-    is_recording = False
+            print(f"Conversion error: {e}")
 
-def detection_loop():
-    """Main face detection loop"""
-    global is_recording
-    picam2.start()
-    
-    try:
-        while True:
-            # Capture frame
-            img = picam2.capture_array("main")
-            frame = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    def _record_video(self):
+        """Handle video recording in background"""
+        with self.camera_lock:
+            self.recording = True
+            try:
+                encoder = H264Encoder()
+                temp_path = "/tmp/temp_recording.h264"
+                self.picam2.start_encoder(encoder, temp_path)
+                time.sleep(RECORD_DURATION)
+                self.picam2.stop_encoder()
+                self._convert_to_mp4(temp_path)
+                os.remove(temp_path)
+            except Exception as e:
+                print(f"Recording error: {e}")
+            self.recording = False
 
-            # Face detection
-            faces = face_cascade.detectMultiScale(
-                gray, 
-                scaleFactor=1.1, 
-                minNeighbors=5, 
-                minSize=(100, 100)
-            )
+    def run_detection(self):
+        """Main detection loop"""
+        try:
+            while True:
+                # Capture frame without interrupting encoder
+                frame = self.picam2.capture_array("main")
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # Start recording if faces found and not already recording
-            if len(faces) > 0 and not is_recording:
-                is_recording = True
-                Thread(target=record_video).start()
-                
-            time.sleep(0.1)
+                # Face detection
+                faces = self.face_cascade.detectMultiScale(
+                    gray, 
+                    scaleFactor=1.1, 
+                    minNeighbors=5, 
+                    minSize=(100, 100)
+                )
 
-    except KeyboardInterrupt:
-        picam2.stop()
-        print("Stopped.")
+                if len(faces) > 0 and not self.recording:
+                    print("Face detected - starting recording!")
+                    Thread(target=self._record_video, daemon=True).start()
+
+                time.sleep(0.1)  # Reduce CPU usage
+
+        except KeyboardInterrupt:
+            self.picam2.stop()
+            print("\nCamera stopped")
 
 if __name__ == "__main__":
-    detection_loop()
+    recorder = FaceRecorder()
+    recorder.run_detection()
