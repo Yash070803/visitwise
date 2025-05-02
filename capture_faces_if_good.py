@@ -74,6 +74,11 @@ def async_upload(path):
         print("Upload exception:", e)
 
 def record_and_upload_video(raw_path, mp4_path, record_duration=5):
+    global t
+    # pause preview capture
+    stop_event.set()
+    t.join()
+
     print("Starting video recording...")
     picam2 = Picamera2()
     config = picam2.create_video_configuration()
@@ -97,6 +102,11 @@ def record_and_upload_video(raw_path, mp4_path, record_duration=5):
             print(f"FFmpeg error: {e}")
     finally:
         picam2.close()
+
+    # resume preview capture
+    stop_event.clear()
+    t = Thread(target=frame_reader, daemon=True)
+    t.start()
 
 # shared frame buffer
 frame_buffer = None
