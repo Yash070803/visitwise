@@ -18,7 +18,7 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 AREA_THRESHOLD = 20000       # Minimum face area (px²)
 MIN_DISTANCE_CM = 150.0      # Max distance to capture
-COOLDOWN_SECONDS = 10        # Time between captures
+COOLDOWN_SECONDS = 0.1        # Time between captures
 
 # Calibration coefficients
 a = 9703.20
@@ -107,7 +107,7 @@ try:
     while not stop_event.is_set():
         with buffer_lock:
             frame = frame_buffer.copy() if frame_buffer is not None else None
-            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         if frame is None:
             time.sleep(0.05)

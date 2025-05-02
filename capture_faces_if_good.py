@@ -36,7 +36,7 @@ SYSTEM_PATHS = [
 def async_upload(path):
     try:
         res = requests.post(
-            'https://meghavi-kiosk-api.onrender.com/api/faces/upload',
+            'https://visit-wise-api.onrender.com/api/faces/upload',
             files={'image': open(path, 'rb')},
             data={'deviceId': 'DEV3617'}
         )
@@ -60,7 +60,9 @@ def find_cascade(name):
     raise FileNotFoundError(f"Cascade '{name}' not found in ./cascades or system paths.")
 
 # load required cascades
-face_cascade = cv2.CascadeClassifier(find_cascade("haarcascade_frontalface_default.xml"))
+# face_cascade = cv2.CascadeClassifier(find_cascade("haarcascade_frontalface_default.xml"))
+# Replace face cascade loading with LBP:
+face_cascade = cv2.CascadeClassifier(find_cascade("lbpcascade_frontalface_improved.xml"))
 eye_cascade  = cv2.CascadeClassifier(find_cascade("haarcascade_eye.xml"))
 # optional nose and mouth cascades
 try:
@@ -87,7 +89,7 @@ def frame_reader():
     picam2.start()
     # tune image for low light and clarity
     picam2.set_controls({
-        "ExposureTime":10000,  # 30 ms
+        "ExposureTime":15000,  # 30 ms
         "AnalogueGain":6.0,
         "AwbEnable":True,
         "AeEnable":True,
@@ -120,11 +122,12 @@ try:
             continue
         # rotate to correct orientation
         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        
+        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # detect faces with stricter parameters
         fgmask = fgbg.apply(gray)
         if cv2.countNonZero(fgmask) < 500:  # Skip if no motion
             continue
-        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # detect faces with stricter parameters
         small = cv2.resize(gray, (0,0), fx=0.5, fy=0.5)
         faces = face_cascade.detectMultiScale(gray,
             scaleFactor=1.1, minNeighbors=8, minSize=(150,150)
@@ -154,15 +157,21 @@ try:
             # check eyes
             roi_gray = gray[y:y+h, x:x+w]
             eyes = eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
-            if len(eyes) < 2:
-                print("missing eyes, skipping Stage2")
-                # continue
-            # optional nose
-            if nose_cascade:
-                noses = nose_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
-                if len(noses) < 1:
-                    print("missing nose, skipping Stage2")
+            if len(eyes) >= 2:
+                # Eye horizontal alignment check
+                eye1_x = eyes[0][0] + eyes[0][2]//2
+                eye2_x = eyes[1][0] + eyes[1][2]//2
+                if abs(eye1_x - eye2_x) > 0.3 * w:
+                    print("Eyes too far apart. Not a face.")
                     continue
+                # Eye-nose vertical positioning
+                noses = nose_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
+                if nose_cascade and len(noses) > 0:
+                    nose_y = noses[0][1] + noses[0][3]//2
+                    eye_y = (eyes[0][1] + eyes[1][1])//2
+                    if not (eye_y < nose_y < eye_y + 0.6*h):
+                        print("Nose misplaced vertically.")
+                        continue
             # optional mouth
             if mouth_cascade:
                 mouths = mouth_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
