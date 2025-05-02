@@ -154,12 +154,12 @@ try:
 
         x, y, w, h = faces[0]
         area = w * h
-        if area < AREA_THRESHOLD:
-            continue
+        # if area < AREA_THRESHOLD:
+        #     continue
 
-        aspect = w / h
-        if not (0.7 < aspect < 1.3):
-            continue
+        # aspect = w / h
+        # if not (0.7 < aspect < 1.3):
+        #     continue
 
         ts = time.strftime("%Y%m%d_%H%M%S")
         crop = frame[y:y+h, x:x+w]
