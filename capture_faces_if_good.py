@@ -81,7 +81,7 @@ def record_and_upload_video(raw_path, mp4_path, record_duration=5):
 
     try:
         picam2.stop()
-        config = picam2.create_video_configuration(main={"size": (1920, 1080)})
+        config = picam2.create_preview_configuration(main={"size":(1280,720)})
         picam2.configure(config)
         encoder = H264Encoder()
         picam2.start_recording(encoder, raw_path)
@@ -123,7 +123,7 @@ stop_event   = Event()
 
 # camera capture thread
 def frame_reader():
-    global frame_buffer
+    global frame_buffer,picam2
     picam2 = Picamera2()
     config = picam2.create_preview_configuration(main={"size":(1280,720)})
     picam2.configure(config)
