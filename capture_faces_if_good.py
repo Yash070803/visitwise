@@ -173,17 +173,18 @@ try:
             roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30)
         )
         if len(eyes) < 2:
-            continue
+            print("no eyes found")
+            
 
         if nose_cascade:
             noses = nose_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
             if len(noses) < 1:
-                continue
+                print("nose not found")
 
         if mouth_cascade:
             mouths = mouth_cascade.detectMultiScale(roi_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30,30))
             if len(mouths) < 1:
-                continue
+                print("mouth not clear")
 
         if dist > MAX_DISTANCE_CM:
             print(f"Too far ({dist:.1f} cm), skipping.")
