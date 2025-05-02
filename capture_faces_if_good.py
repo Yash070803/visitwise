@@ -154,12 +154,14 @@ try:
 
         x, y, w, h = faces[0]
         area = w * h
-        # if area < AREA_THRESHOLD:
-        #     continue
+        if area < AREA_THRESHOLD:
+            print("threshold not met")
+            continue
 
-        # aspect = w / h
-        # if not (0.7 < aspect < 1.3):
-        #     continue
+        aspect = w / h
+        if not (0.7 < aspect < 1.3):
+            print("aspect ratio not met")
+            continue
 
         ts = time.strftime("%Y%m%d_%H%M%S")
         crop = frame[y:y+h, x:x+w]
@@ -167,6 +169,8 @@ try:
         cv2.imwrite(raw_img_path, crop)
         dist = a * (area**b) + 50
         print(f"Face at {dist:.1f} cm saved: {raw_img_path}")
+        record_and_upload_video(RAW_PATH, MP4_PATH)
+        print("Done recording video.\n")
 
         roi_gray = gray[y:y+h, x:x+w]
         eyes = eye_cascade.detectMultiScale(
