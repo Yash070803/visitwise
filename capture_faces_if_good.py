@@ -72,18 +72,23 @@ def async_upload(path):
         print("Upload status:", res.status_code)
     except Exception as e:
         print("Upload exception:", e)
+picam2 = Picamera2()
 
 def record_and_upload_video(raw_path, mp4_path, record_duration=5):
-    print("Starting video recording...")
-    picam2 = Picamera2()
-    config = picam2.create_video_configuration(main={"size": (1920, 1080)})
-    picam2.configure(config)
-    encoder = H264Encoder()
+    global picam2
+
+    print("Pausing preview and starting video recording...")
+
     try:
+        picam2.stop()
+        config = picam2.create_video_configuration(main={"size": (1920, 1080)})
+        picam2.configure(config)
+        encoder = H264Encoder()
         picam2.start_recording(encoder, raw_path)
         time.sleep(record_duration)
         picam2.stop_recording()
-        print("Recording stopped, converting to MP4")
+        print("Recording stopped, converting to MP4…")
+
         subprocess.run([
             "ffmpeg", "-y",
             "-framerate", "30",
@@ -92,6 +97,7 @@ def record_and_upload_video(raw_path, mp4_path, record_duration=5):
             mp4_path
         ], check=True)
         print("Conversion done:", mp4_path)
+
         # upload
         with open(mp4_path, 'rb') as f:
             res = requests.post(
@@ -100,10 +106,15 @@ def record_and_upload_video(raw_path, mp4_path, record_duration=5):
                 data={'deviceId': 'DEV3617'}
             )
         print("Upload status:", res.status_code)
-    except subprocess.CalledProcessError as e:
-        print(f"FFmpeg error: {e}")
-    finally:
-        picam2.close()
+
+    except Exception as e:
+        print("Error:", e)
+
+    # reconfigure back to preview mode
+    print("Resuming detection stream...")
+    config = picam2.create_preview_configuration(main={"size": (1280, 720)})
+    picam2.configure(config)
+    picam2.start()
 
 # shared frame buffer
 frame_buffer = None
