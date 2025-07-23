@@ -112,5 +112,5 @@ if __name__ == "__main__":
     camera_loop()
 
 
-def print_function():
-    print("Hello");
+def print_hello():
+    print("hello ")
